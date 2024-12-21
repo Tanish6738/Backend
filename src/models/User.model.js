@@ -14,7 +14,7 @@ const userSchema = new Schema({
         trim: true,
         index : true
     },
-    emai : {
+    email : {
         type: String,
         required: true,
         unique: true,
@@ -78,4 +78,4 @@ userSchema.methods.generateRefreshToken = function(){
     }, process.env.REFRESH_TOKEN_SECRET, {expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d'}); 
 }
 
-export const model = mongoose.model('User', userSchema);
+export const userModel = mongoose.model('User', userSchema);
