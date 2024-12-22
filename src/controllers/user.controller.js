@@ -19,7 +19,7 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     const avatarLocalPath =  req.files?.avatar[0]?.path || null;   ;
-    const coverLocalPath = req.files?.cover[0]?.path || null;
+    const coverLocalPath = req.files?.coverImage[0]?.path || null;
 
     if (!avatarLocalPath) {
         throw new ApiError(400, "Please upload an avatar image");
@@ -36,7 +36,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const newUser = await userModel.create({
         fullName,
         avatar : avatar.url,
-        cover : cover?.url || "",
+        coverImage : cover.url || "",
         username : username.toLowerCase(),
         email,
         password,
