@@ -1,5 +1,6 @@
 import asyncHandler from "../../utils/asyncHandler.js";
 import { userModel } from "../models/User.model.js";
+import { subscriptionModel } from "../models/Subscription.model.js"
 import { ApiError } from "../../utils/ApiError.js";
 import { uploadOnCloudinary } from "../../utils/Cloudinary.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
@@ -338,6 +339,76 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200, "Cover image updated successfully", user));
 });
 
+const getChannelProfile = asyncHandler(async (req, res) => {
+    try {
+        const { username } = req.params;
+
+        if (!username) {
+            throw new ApiError(400, "Please provide a username");
+        }
+
+        const user = await userModel.aggregate([
+            {
+                $match: {
+                    username: username?.toLowerCase(),
+                },
+            },
+            {
+                $lookup: {
+                    from: "subscriptions",
+                    localField: "_id",
+                    foreignField: "channel",
+                    as: "subscribers"
+                }
+            }, {
+                $lookup: {
+                    from: "subscriptions",
+                    localField: "_id",
+                    foreignField: "subscriber",
+                    as: "subscribeTo"
+                }
+            }, {
+                $addFields: {
+                    subscriberCount: {
+                        $size: "$subscribers"
+                    },
+                    subscribeToCount: {
+                        $size: "$subscribeTo"
+                    },
+                    isSubscribed: {
+                        if: {
+                            $in: [req.user._id, "$subscribers.subscriber"]
+                        },
+                        then: true,
+                        else: false
+                    }
+                }
+            }, {
+                $project: {
+                    fullName: 1,
+                    username: 1,
+                    email: 1,
+                    isSubscribed: 1,
+                    avatar: 1,
+                    coverImage: 1,
+                    subscriberCount: 1,
+                    subscribeToCount: 1
+                }
+            }
+        ]);
+
+        console.log("Channel profile found:", user);
+
+        if (!user.length) {
+            throw new ApiError(404, "Channel profile not found");
+        }
+
+        return res.status(200).json(new ApiResponse(200, "Channel profile found", user));
+    } catch (error) {
+        throw new ApiError(500, "Error fetching channel profile");
+    }
+});
+
 
 
 
@@ -350,5 +421,6 @@ export {
     getCurrentUser,
     updateUserAccount,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getChannelProfile
 };
