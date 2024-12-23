@@ -5,6 +5,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { uploadOnCloudinary } from "../../utils/Cloudinary.js"
 import { ApiResponse } from "../../utils/ApiResponse.js"
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 
 const generateAccessAndRefreshToken = async (userId) => {
@@ -409,7 +410,59 @@ const getChannelProfile = asyncHandler(async (req, res) => {
     }
 });
 
+const getUserWatchHistory = asyncHandler(async (req, res) => {
+    try{
+        const  user = await userModel.aggregate([
+            {
+                $match: {
+                    _id: new mongoose.Types.ObjectId(req.user._id)
+                }               
+            },
+            {
+                $lookup : {
+                    from : "videos",
+                    localField : "watchHistory.video",
+                    foreignField : "_id",
+                    as : "watchHistory",
+                    pipline : [
+                        {
+                            $lookup : {
+                                from : "users",
+                                localField : "owner",
+                                foreignField : "_id",
+                                as : "owner",
+                                pipline : [
+                                    {
+                                        $project : {
+                                            fullName : 1,
+                                            username : 1,
+                                            avatar : 1
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                $addFields : {
+                owner : {
+                    $arrayElemAt : ["$watchHistory.owner", 0]
+                }
+                }
+            }
+        ])
 
+        return res.status(200).json(new ApiResponse(200, "Watch history found", 
+            user?.[0]?.watchHistory
+        ));
+
+    } catch (error) {
+        throw new ApiError(500, "Error fetching watch history");
+    }
+
+});
 
 
 export {
@@ -422,5 +475,6 @@ export {
     updateUserAccount,
     updateUserAvatar,
     updateUserCoverImage,
-    getChannelProfile
+    getChannelProfile,
+    getUserWatchHistory
 };
