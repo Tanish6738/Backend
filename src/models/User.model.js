@@ -33,11 +33,11 @@ const userSchema = new Schema({
     },
     avatar: {
         type: String, // Cloudinary URL
-        default: ''
+        required: true
     },
     coverImage: {
         type: String, 
-        default: ''
+        default: ""
     },
     watchHistory : [
         {
@@ -60,11 +60,16 @@ userSchema.pre("save", async function(next){
     next();
 });
 
-userSchema.methods.isPasswordCorrect = async function(password){
-    return await bcryt.compare(password, this.password);
-}
+userSchema.methods.isPasswordCorrect = async function(password) {
+    try {
+        return await bcryt.compare(password, this.password);
+    } catch (error) {
+        console.error("Password comparison error:", error);
+        return false;
+    }
+};
 
-userSchema.methods.generateToken = function(){
+userSchema.methods.generateAccessToken = function(){
     return jwt.sign({
         _id: this._id,
         username: this.username,
