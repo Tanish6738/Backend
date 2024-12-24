@@ -11,7 +11,11 @@ router.route('/register').post(
     ])
     ,registerUser
 );
-router.route('/login').post(loginUser);
+router.route('/login')
+    .get((req,res)=>{
+        res.send('Login page'); 
+    })
+    .post(loginUser);
 
 // secure route
 router.route('/logout').post(verifyJWT,logoutUser);
