@@ -22,7 +22,7 @@ router.route('/change-password').post(verifyJWT,changeCurrentUserPassword);
 
 router.route('/me').get(verifyJWT,getCurrentUser);
 
-router.route('/update').put(verifyJWT,updateUserAccount);
+router.route('/update-user').put(verifyJWT,updateUserAccount);
 
 router.route('/update/avatar').put(verifyJWT,upload.single('avatar'),updateUserAvatar);
 

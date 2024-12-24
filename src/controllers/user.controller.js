@@ -415,32 +415,32 @@ const getChannelProfile = asyncHandler(async (req, res) => {
 });
 
 const getUserWatchHistory = asyncHandler(async (req, res) => {
-    try{
-        const  user = await userModel.aggregate([
+    try {
+        const user = await userModel.aggregate([
             {
                 $match: {
                     _id: new mongoose.Types.ObjectId(req.user._id)
-                }               
+                }
             },
             {
-                $lookup : {
-                    from : "videos",
-                    localField : "watchHistory.video",
-                    foreignField : "_id",
-                    as : "watchHistory",
-                    pipline : [
+                $lookup: {
+                    from: "videos",
+                    localField: "watchHistory.video",
+                    foreignField: "_id",
+                    as: "watchHistory",
+                    pipeline: [
                         {
-                            $lookup : {
-                                from : "users",
-                                localField : "owner",
-                                foreignField : "_id",
-                                as : "owner",
-                                pipline : [
+                            $lookup: {
+                                from: "users",
+                                localField: "owner",
+                                foreignField: "_id",
+                                as: "owner",
+                                pipeline: [
                                     {
-                                        $project : {
-                                            fullName : 1,
-                                            username : 1,
-                                            avatar : 1
+                                        $project: {
+                                            fullName: 1,
+                                            username: 1,
+                                            avatar: 1
                                         }
                                     }
                                 ]
@@ -450,22 +450,23 @@ const getUserWatchHistory = asyncHandler(async (req, res) => {
                 }
             },
             {
-                $addFields : {
-                owner : {
-                    $arrayElemAt : ["$watchHistory.owner", 0]
-                }
+                $addFields: {
+                    owner: {
+                        $arrayElemAt: ["$watchHistory.owner", 0]
+                    }
                 }
             }
-        ])
+        ]);
+
+        // console.log("Watch history found:", user);
 
         return res.status(200).json(new ApiResponse(200, "Watch history found", 
             user?.[0]?.watchHistory
         ));
-
     } catch (error) {
+        console.error("Error fetching watch history:", error);
         throw new ApiError(500, "Error fetching watch history");
     }
-
 });
 
 
