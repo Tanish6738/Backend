@@ -6,7 +6,7 @@ import { userModel } from "../models/User.model.js";
 export const verifyJWT = asyncHandler(async (req, res, next) => {
     try {
         const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "")
-        console.log("Received token:", token);
+        // console.log("Received token:", token);
         
         if (!token) {
             throw new ApiError(401, "Authorization token is missing");
@@ -14,10 +14,10 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
 
         try {
             const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-            console.log("Decoded token:", decoded);
+            // console.log("Decoded token:", decoded);
             
             const user = await userModel.findById(decoded._id).select("-password -refreshToken");
-            console.log("Found user:", user);
+            // console.log("Found user:", user);
 
             if (!user) {
                 throw new ApiError(401, "Invalid Access Token - User not found");

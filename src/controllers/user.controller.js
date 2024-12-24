@@ -104,7 +104,7 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password, username } = req.body;
 
-    console.log("Login request received:", { email, username, password });
+    // console.log("Login request received:", { email, username, password });
 
     if ((!email && !username) || !password) {
         throw new ApiError(400, "Please provide either email or username, and password");
@@ -117,7 +117,7 @@ const loginUser = asyncHandler(async (req, res) => {
         ]
     });
 
-    console.log("User found:", user);
+    // console.log("User found:", user);
 
     if (!user) {
         throw new ApiError(404, "User does not exist");
@@ -149,9 +149,13 @@ const loginUser = asyncHandler(async (req, res) => {
 const logoutUser = asyncHandler(async (req, res) => {
     await userModel.findByIdAndUpdate(
         req.user._id, {
-        $set: { refreshToken: undefined },
+        $unset: {
+            refreshToken: 1 
+        },
         new: true
     });
+
+    console.log("User logged out successfully", req.user.refreshToken);
 
     const option = {
         expires: new Date(Date.now() - 1000),
