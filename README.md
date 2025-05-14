@@ -17,12 +17,13 @@ This guide will help you test the Streamer backend APIs using Postman. It covers
 ### Register User
 - **POST** `/users/register`
 - **Body (form-data):**
-  - `fullName`: `John Doe`
-  - `username`: `johndoe`
-  - `email`: `john@example.com`
-  - `password`: `Password123!`
-  - `avatar`: (image file)
+  - `fullName`: `John Doe` (required, non-empty)
+  - `username`: `johndoe` (required, non-empty, unique)
+  - `email`: `john@example.com` (required, non-empty, unique)
+  - `password`: `Password123!` (required, non-empty)
+  - `avatar`: (image file, required)
   - `coverImage`: (image file, optional)
+- **Validation:** All fields except `coverImage` are required and must not be empty. `avatar` file is required. Duplicate email or username is not allowed.
 - **Response:**
 ```json
 {
@@ -54,10 +55,11 @@ if (pm.response.code === 201) {
 - **Body (JSON):**
 ```json
 {
-  "email": "john@example.com",
+  "email": "john@example.com", // or "username": "johndoe"
   "password": "Password123!"
 }
 ```
+- **Validation:** Either `email` or `username` is required, and `password` is required. All must be non-empty.
 - **Response:**
 ```json
 {
@@ -66,12 +68,15 @@ if (pm.response.code === 201) {
   "data": {
     "_id": "...",
     "username": "johndoe",
-    ...
+    "email": "john@example.com",
+    "fullName": "John Doe",
+    "avatar": "<cloudinary_url>",
+    "coverImage": "<cloudinary_url>"
   },
   "success": true
 }
 ```
-- **Note:** Save the `accessToken` cookie or use the returned JWT as Bearer token for subsequent requests.
+- **Cookies:** `accessToken` and `refreshToken` are set as httpOnly, secure cookies.
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -85,7 +90,6 @@ if (pm.response.code === 200) {
     if (pm.cookies.get('refreshToken')) {
         pm.environment.set("refreshToken", pm.cookies.get('refreshToken'));
     }
-    // If tokens are in response body:
     if (json.data && json.data.accessToken) {
         pm.environment.set("accessToken", json.data.accessToken);
     }
@@ -95,24 +99,218 @@ if (pm.response.code === 200) {
 }
 ```
 
+### Logout User
+- **POST** `/users/logout`
+- **Headers:** `Authorization: Bearer <accessToken>` (or cookie)
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "User logged out successfully",
+  "data": null,
+  "success": true
+}
+```
+
+### Refresh Access Token
+- **POST** `/users/refresh-token`
+- **Body (JSON or Cookie):**
+  - `refreshToken`: (string, required if not in cookie)
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Access token refreshed successfully",
+  "data": {
+    "accessToken": "...",
+    "refreshToken": "..."
+  },
+  "success": true
+}
+```
+- **Postman Test Script:**
+```js
+if (pm.response.code === 200) {
+    var json = pm.response.json();
+    if (json.data && json.data.accessToken) {
+        pm.environment.set("accessToken", json.data.accessToken);
+    }
+    if (json.data && json.data.refreshToken) {
+        pm.environment.set("refreshToken", json.data.refreshToken);
+    }
+}
+```
+
+### Change Current User Password
+- **PATCH** `/users/change-password`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Body (JSON):**
+```json
+{
+  "oldPassword": "Password123!",
+  "newPassword": "NewPassword456!"
+}
+```
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Password changed successfully",
+  "data": null,
+  "success": true
+}
+```
+
+### Get Current User
+- **GET** `/users/me`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "User found",
+  "data": {
+    "_id": "...",
+    "username": "johndoe",
+    "email": "john@example.com",
+    "fullName": "John Doe",
+    "avatar": "<cloudinary_url>",
+    "coverImage": "<cloudinary_url>"
+  },
+  "success": true
+}
+```
+
+### Update User Account
+- **PATCH** `/users/update`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Body (JSON):**
+```json
+{
+  "fullName": "New Name", // optional
+  "email": "newemail@example.com", // optional
+  "username": "newusername" // optional
+}
+```
+- **Validation:** At least one field is required and must not be empty. Email/username must be unique.
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "User updated successfully",
+  "data": {
+    "_id": "...",
+    "username": "newusername",
+    "email": "newemail@example.com",
+    "fullName": "New Name",
+    "avatar": "<cloudinary_url>",
+    "coverImage": "<cloudinary_url>"
+  },
+  "success": true
+}
+```
+
+### Update User Avatar
+- **PATCH** `/users/avatar`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Body (form-data):**
+  - `avatar`: (image file, required)
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Avatar updated successfully",
+  "data": {
+    "_id": "...",
+    "avatar": "<cloudinary_url>"
+  },
+  "success": true
+}
+```
+
+### Update User Cover Image
+- **PATCH** `/users/cover-image`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Body (form-data):**
+  - `coverImage`: (image file, required)
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Cover image updated successfully",
+  "data": {
+    "_id": "...",
+    "coverImage": "<cloudinary_url>"
+  },
+  "success": true
+}
+```
+
+### Get Channel Profile
+- **GET** `/users/channel/:username`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Channel profile found",
+  "data": [
+    {
+      "fullName": "...",
+      "username": "...",
+      "email": "...",
+      "isSubscribed": true,
+      "avatar": "<cloudinary_url>",
+      "coverImage": "<cloudinary_url>",
+      "subscriberCount": 0,
+      "subscribeToCount": 0
+    }
+  ],
+  "success": true
+}
+```
+
+### Get User Watch History
+- **GET** `/users/watch-history`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Watch history found",
+  "data": [ /* array of video objects with owner info */ ],
+  "success": true
+}
+```
+
 ---
 
 ## 3. Video APIs
 
 ### Publish a Video
 - **POST** `/videos/`
-- **Headers:** `Authorization: Bearer <token>`
+- **Headers:** `Authorization: Bearer <accessToken>`
 - **Body (form-data):**
-  - `title`: `My First Video`
-  - `description`: `This is a test video.`
-  - `videoFile`: (video file)
-  - `thumbnail`: (image file)
+  - `title`: `My First Video` (required)
+  - `description`: `This is a test video.` (optional)
+  - `videoFile`: (video file, required)
+  - `thumbnail`: (image file, required)
+- **Validation:** `title` and both files are required. User must be authenticated.
 - **Response:**
 ```json
 {
   "statusCode": 201,
   "message": "Video created successfully",
-  "data": { ... }
+  "data": {
+    "_id": "...",
+    "title": "My First Video",
+    "description": "This is a test video.",
+    "videoFile": "<cloudinary_url>",
+    "thumbnail": "<cloudinary_url>",
+    "duration": 0,
+    "owner": "..."
+  },
+  "success": true
 }
 ```
 - **Postman Test Script:**
@@ -127,17 +325,31 @@ if (pm.response.code === 201) {
 
 ### Get All Videos
 - **GET** `/videos/`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Query Params (optional):**
+  - `page`, `limit`, `query`, `sortBy`, `sortType`, `userId`
 - **Response:**
 ```json
 {
   "statusCode": 200,
   "message": "Videos retrieved successfully",
-  "data": { "docs": [ ... ] }
+  "data": { /* paginated video list */ },
+  "success": true
 }
 ```
 
 ### Get Video by ID
-- **GET** `/videos/{videoId}`
+- **GET** `/videos/:videoId`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Video retrieved successfully",
+  "data": { /* video object with owner info */ },
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -149,10 +361,22 @@ if (pm.response.code === 200) {
 ```
 
 ### Update Video
-- **PATCH** `/videos/{videoId}`
-- **Headers:** `Authorization: Bearer <token>`
+- **PATCH** `/videos/:videoId`
+- **Headers:** `Authorization: Bearer <accessToken>`
 - **Body (form-data):**
-  - `title`, `description`, `thumbnail` (as needed)
+  - `title`: (optional)
+  - `description`: (optional)
+  - `thumbnail`: (image file, optional)
+- **Validation:** Only the video owner can update. At least one field required.
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Video updated successfully",
+  "data": { /* updated video object */ },
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -164,11 +388,35 @@ if (pm.response.code === 200) {
 ```
 
 ### Delete Video
-- **DELETE** `/videos/{videoId}`
+- **DELETE** `/videos/:videoId`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Validation:** Only the video owner can delete.
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Video deleted successfully",
+  "data": null,
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
     pm.environment.unset("videoId");
+}
+```
+
+### Toggle Video Publish Status
+- **PATCH** `/videos/toggle/publish/:videoId`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Video publish status updated",
+  "data": { /* video object with updated isPublished */ },
+  "success": true
 }
 ```
 
@@ -178,12 +426,26 @@ if (pm.response.code === 200) {
 
 ### Create Playlist
 - **POST** `/playlists/`
-- **Headers:** `Authorization: Bearer <token>`
+- **Headers:** `Authorization: Bearer <accessToken>`
 - **Body (JSON):**
 ```json
 {
   "name": "My Playlist",
   "description": "A test playlist."
+}
+```
+- **Response:**
+```json
+{
+  "statusCode": 201,
+  "message": "Playlist created successfully",
+  "data": {
+    "_id": "...",
+    "name": "My Playlist",
+    "description": "A test playlist.",
+    "owner": "..."
+  },
+  "success": true
 }
 ```
 - **Postman Test Script:**
@@ -197,10 +459,43 @@ if (pm.response.code === 201) {
 ```
 
 ### Get User Playlists
-- **GET** `/playlists/user/{userId}`
+- **GET** `/playlists/user/{{userId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "User playlists fetched successfully",
+  "data": [ /* array of playlist objects */ ],
+  "success": true
+}
+```
+
+### Get Playlist by ID
+- **GET** `/playlists/{{playlistId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "playlist fetched successfully",
+  "data": { /* playlist object */ },
+  "success": true
+}
+```
 
 ### Add Video to Playlist
-- **PATCH** `/playlists/add/{videoId}/{playlistId}`
+- **PATCH** `/playlists/add/{{videoId}}/{{playlistId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Video added to playlist successfully",
+  "data": { /* updated playlist object */ },
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -209,10 +504,38 @@ if (pm.response.code === 200) {
 ```
 
 ### Remove Video from Playlist
-- **PATCH** `/playlists/remove/{videoId}/{playlistId}`
+- **PATCH** `/playlists/remove/{{videoId}}/{{playlistId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Video removed from playlist successfully",
+  "data": { /* updated playlist object */ },
+  "success": true
+}
+```
 
 ### Update Playlist
-- **PATCH** `/playlists/{playlistId}`
+- **PATCH** `/playlists/{{playlistId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Body (JSON):**
+```json
+{
+  "name": "Updated Playlist Name", // optional
+  "description": "Updated description." // optional
+}
+```
+- **Validation:** Only the playlist owner can update. At least one field required.
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Playlist updated successfully",
+  "data": { /* updated playlist object */ },
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -224,7 +547,18 @@ if (pm.response.code === 200) {
 ```
 
 ### Delete Playlist
-- **DELETE** `/playlists/{playlistId}`
+- **DELETE** `/playlists/{{playlistId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Validation:** Only the playlist owner can delete.
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Playlist deleted successfully",
+  "data": null,
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -238,11 +572,26 @@ if (pm.response.code === 200) {
 
 ### Create Tweet
 - **POST** `/tweets/`
-- **Headers:** `Authorization: Bearer <token>`
+- **Headers:** `Authorization: Bearer <accessToken>`
 - **Body (JSON):**
 ```json
 {
   "content": "This is my first tweet!"
+}
+```
+- **Validation:** `content` is required and must not be empty.
+- **Response:**
+```json
+{
+  "statusCode": 201,
+  "message": "Tweet created successfully",
+  "data": {
+    "_id": "...",
+    "content": "This is my first tweet!",
+    "owner": "...",
+    "createdAt": "..."
+  },
+  "success": true
 }
 ```
 - **Postman Test Script:**
@@ -256,11 +605,50 @@ if (pm.response.code === 201) {
 ```
 
 ### Get User Tweets
-- **GET** `/tweets/user/{userId}`
+- **GET** `/tweets/user/{{userId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Tweets fetched successfully",
+  "data": [
+    {
+      "content": "...",
+      "createdAt": "...",
+      "owner": { "username": "...", "avatar": { "url": "..." } },
+      "likesCount": 0,
+      "isLiked": false
+    }
+  ],
+  "success": true
+}
+```
 
 ### Update Tweet
-- **PATCH** `/tweets/{tweetId}`
-- **Body (JSON):** `{ "content": "Updated tweet!" }`
+- **PATCH** `/tweets/{{tweetId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Body (JSON):**
+```json
+{
+  "content": "Updated tweet!"
+}
+```
+- **Validation:** Only the tweet owner can update. `content` must not be empty.
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Tweet updated successfully",
+  "data": {
+    "_id": "...",
+    "content": "Updated tweet!",
+    "owner": "...",
+    "createdAt": "..."
+  },
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -272,7 +660,18 @@ if (pm.response.code === 200) {
 ```
 
 ### Delete Tweet
-- **DELETE** `/tweets/{tweetId}`
+- **DELETE** `/tweets/{{tweetId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Validation:** Only the tweet owner can delete.
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Tweet deleted successfully",
+  "data": {},
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -285,15 +684,36 @@ if (pm.response.code === 200) {
 ## 6. Comment APIs
 
 ### Get Video Comments
-- **GET** `/comments/{videoId}`
+- **GET** `/comments/{{videoId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Query Params (optional):**
+  - `page`, `limit`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Comments fetched successfully",
+  "data": [ /* array of comment objects */ ],
+  "success": true
+}
+```
 
 ### Add Comment
-- **POST** `/comments/{videoId}`
-- **Headers:** `Authorization: Bearer <token>`
+- **POST** `/comments/{{videoId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
 - **Body (JSON):**
 ```json
 {
   "content": "Nice video!"
+}
+```
+- **Response:**
+```json
+{
+  "statusCode": 201,
+  "message": "Comment added successfully",
+  "data": { /* comment object */ },
+  "success": true
 }
 ```
 - **Postman Test Script:**
@@ -307,8 +727,24 @@ if (pm.response.code === 201) {
 ```
 
 ### Update Comment
-- **PATCH** `/comments/c/{commentId}`
-- **Body (JSON):** `{ "content": "Updated comment!" }`
+- **PATCH** `/comments/c/{{commentId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Body (JSON):**
+```json
+{
+  "content": "Updated comment!"
+}
+```
+- **Validation:** Only the comment owner can update. `content` must not be empty.
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Comment updated successfully",
+  "data": { /* updated comment object */ },
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -320,7 +756,18 @@ if (pm.response.code === 200) {
 ```
 
 ### Delete Comment
-- **DELETE** `/comments/c/{commentId}`
+- **DELETE** `/comments/c/{{commentId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Validation:** Only the comment owner can delete.
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Comment deleted successfully",
+  "data": null,
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -333,7 +780,26 @@ if (pm.response.code === 200) {
 ## 7. Like APIs
 
 ### Like/Unlike Video
-- **POST** `/likes/toggle/v/{videoId}`
+- **POST** `/likes/toggle/v/{{videoId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response (Like):**
+```json
+{
+  "statusCode": 200,
+  "message": "Video liked successfully",
+  "data": null,
+  "success": true
+}
+```
+- **Response (Unlike):**
+```json
+{
+  "statusCode": 200,
+  "message": "Video unliked successfully",
+  "data": null,
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -342,7 +808,26 @@ if (pm.response.code === 200) {
 ```
 
 ### Like/Unlike Comment
-- **POST** `/likes/toggle/c/{commentId}`
+- **POST** `/likes/toggle/c/{{commentId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response (Like):**
+```json
+{
+  "statusCode": 200,
+  "message": "Comment liked successfully",
+  "data": null,
+  "success": true
+}
+```
+- **Response (Unlike):**
+```json
+{
+  "statusCode": 200,
+  "message": "Comment unliked successfully",
+  "data": null,
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -351,7 +836,26 @@ if (pm.response.code === 200) {
 ```
 
 ### Like/Unlike Tweet
-- **POST** `/likes/toggle/t/{tweetId}`
+- **POST** `/likes/toggle/t/{{tweetId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response (Like):**
+```json
+{
+  "statusCode": 200,
+  "message": "Tweet liked successfully",
+  "data": null,
+  "success": true
+}
+```
+- **Response (Unlike):**
+```json
+{
+  "statusCode": 200,
+  "message": "Tweet unliked successfully",
+  "data": null,
+  "success": true
+}
+```
 - **Postman Test Script:**
 ```js
 if (pm.response.code === 200) {
@@ -361,41 +865,74 @@ if (pm.response.code === 200) {
 
 ### Get Liked Videos
 - **GET** `/likes/videos`
-
----
-
-## 8. Subscription APIs
-
-### Subscribe/Unsubscribe to Channel
-- **POST** `/subscriptions/c/{channelId}`
-- **Postman Test Script:**
-```js
-if (pm.response.code === 200) {
-    // Optionally update subscriptionId or channelId if needed
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Query Params (optional):**
+  - `page`, `limit`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Liked videos fetched successfully",
+  "data": [ /* array of liked video objects */ ],
+  "success": true
 }
 ```
-
-### Get Subscribed Channels
-- **GET** `/subscriptions/c/{channelId}`
-
-### Get Channel Subscribers
-- **GET** `/subscriptions/u/{subscriberId}`
 
 ---
 
 ## 9. Dashboard APIs
 
 ### Get Channel Stats
-- **GET** `/dashboard/stats?channelId={channelId}`
+- **GET** `/dashboard/stats?channelId={{channelId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Channel stats fetched successfully",
+  "data": { /* stats object */ },
+  "success": true
+}
+```
 
 ### Get Channel Videos
-- **GET** `/dashboard/videos?channelId={channelId}`
+- **GET** `/dashboard/videos?channelId={{channelId}}&page=1&limit=10&search=...&sortBy=...&sortType=asc|desc`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Channel videos fetched successfully",
+  "data": { /* paginated videos object */ },
+  "success": true
+}
+```
 
 ### Get Channel Engagement
-- **GET** `/dashboard/engagement?channelId={channelId}`
+- **GET** `/dashboard/engagement?channelId={{channelId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Channel engagement analytics fetched successfully",
+  "data": { /* engagement analytics object */ },
+  "success": true
+}
+```
 
 ### Get Top Videos
-- **GET** `/dashboard/top-videos?channelId={channelId}`
+- **GET** `/dashboard/top-videos?channelId={{channelId}}`
+- **Headers:** `Authorization: Bearer <accessToken>`
+- **Response:**
+```json
+{
+  "statusCode": 200,
+  "message": "Top videos fetched successfully",
+  "data": [ /* array of top video objects */ ],
+  "success": true
+}
+```
 
 ---
 
