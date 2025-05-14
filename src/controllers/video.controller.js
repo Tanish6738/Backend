@@ -1,10 +1,10 @@
 import mongoose, { isValidObjectId } from "mongoose";
 import { videoModel as Video } from "../models/video.model.js";
-import { User } from "../models/user.model.js";
+import { userModel } from "../models/User.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
-import { asyncHandler } from "../../utils/asyncHandler.js";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import  asyncHandler from "../../utils/asyncHandler.js";
+import { uploadOnCloudinary } from "../../utils/Cloudinary.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
@@ -50,7 +50,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     const { videoFile, thumbnail } = req.files;
     const userId = req.user._id;
 
-    const user = await User.findById(userId);
+    const user = await userModel.findById(userId);
     if (!user) {
         return res.status(404).json(
             new ApiResponse(404, "User not found")

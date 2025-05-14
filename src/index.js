@@ -1,12 +1,12 @@
 import app from './App.js';
-import connetdb from './db/index.js';
+import connectdb from './db/index.js';
 import dotenv from "dotenv"
 
 dotenv.config({
     path : './.env'
 })
 
-connetdb()
+connectdb()
     .then(()=>{
 
         app.on('error', (error)=>{
