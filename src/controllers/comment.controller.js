@@ -38,40 +38,37 @@ const addComment = asyncHandler(async (req, res) => {
     return res.status(201).json(new ApiResponse(201, "Comment added successfully", comment));
 });
 
+// Add ownership check for update and delete
 const updateComment = asyncHandler(async (req, res) => {
     const { commentId } = req.params;
     const { content } = req.body;
-
     if (!isValidObjectId(commentId)) {
-        return res.status(400).json(new ApiResponse(400, "Invalid comment ID"));
+        throw new ApiError(400, "Invalid comment ID");
     }
-
-    const comment = await Comment.findByIdAndUpdate(
-        commentId,
-        { content },
-        { new: true, runValidators: true }
-    );
-
+    const comment = await Comment.findById(commentId);
     if (!comment) {
-        return res.status(404).json(new ApiResponse(404, "Comment not found"));
+        throw new ApiError(404, "Comment not found");
     }
-
+    if (comment.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to update this comment");
+    }
+    comment.content = content || comment.content;
+    await comment.save();
     return res.status(200).json(new ApiResponse(200, "Comment updated successfully", comment));
 });
-
 const deleteComment = asyncHandler(async (req, res) => {
     const { commentId } = req.params;
-
     if (!isValidObjectId(commentId)) {
-        return res.status(400).json(new ApiResponse(400, "Invalid comment ID"));
+        throw new ApiError(400, "Invalid comment ID");
     }
-
-    const comment = await Comment.findByIdAndDelete(commentId);
-
+    const comment = await Comment.findById(commentId);
     if (!comment) {
-        return res.status(404).json(new ApiResponse(404, "Comment not found"));
+        throw new ApiError(404, "Comment not found");
     }
-
+    if (comment.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to delete this comment");
+    }
+    await comment.remove();
     return res.status(200).json(new ApiResponse(200, "Comment deleted successfully"));
 });
 

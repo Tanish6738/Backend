@@ -5,12 +5,16 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import  asyncHandler from "../../utils/asyncHandler.js";
 
+// Add ownership check for toggleSubscription
 const toggleSubscription = asyncHandler(async (req, res) => {
     const { channelId } = req.params;
     const subscriberId = req.user._id;
 
     if (!isValidObjectId(channelId)) {
-        return res.status(400).json(new ApiResponse(400, "Invalid channel ID"));
+        throw new ApiError(400, "Invalid channel ID");
+    }
+    if (channelId === subscriberId.toString()) {
+        throw new ApiError(400, "You cannot subscribe to yourself");
     }
 
     const subscription = await subscriptionModel.findOne({ subscriber: subscriberId, channel: channelId });

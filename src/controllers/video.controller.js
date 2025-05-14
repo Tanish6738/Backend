@@ -1,5 +1,5 @@
 import mongoose, { isValidObjectId } from "mongoose";
-import { videoModel as Video } from "../models/video.model.js";
+import { videoModel } from "../models/Video.model.js";
 import { userModel } from "../models/User.model.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
@@ -106,22 +106,22 @@ const updateVideo = asyncHandler(async (req, res) => {
     const { title, description, thumbnail } = req.body;
 
     if (!isValidObjectId(videoId)) {
-        return res.status(400).json(
-            new ApiResponse(400, "Invalid video ID")
-        );
+        throw new ApiError(400, "Invalid video ID");
     }
 
-    const video = await Video.findByIdAndUpdate(
-        videoId,
-        { title, description, thumbnail },
-        { new: true, runValidators: true }
-    );
-
+    const video = await videoModel.findById(videoId);
     if (!video) {
-        return res.status(404).json(
-            new ApiResponse(404, "Video not found")
-        );
+        throw new ApiError(404, "Video not found");
     }
+
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to update this video");
+    }
+
+    video.title = title || video.title;
+    video.description = description || video.description;
+    video.thumbnail = thumbnail || video.thumbnail;
+    await video.save();
 
     return res.status(200).json(
         new ApiResponse(200, "Video updated successfully", video)
@@ -132,16 +132,16 @@ const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
 
     if (!isValidObjectId(videoId)) {
-        return res.status(400).json(
-            new ApiResponse(400, "Invalid video ID")
-        );
+        throw new ApiError(400, "Invalid video ID");
     }
 
-    const video = await Video.findById(videoId);
+    const video = await videoModel.findById(videoId);
     if (!video) {
-        return res.status(404).json(
-            new ApiResponse(404, "Video not found")
-        );
+        throw new ApiError(404, "Video not found");
+    }
+
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to delete this video");
     }
 
     await video.remove();
