@@ -43,7 +43,7 @@ const getUserTweets = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Invalid userId");
     }
   
-    const userTweets = await Tweet.aggregate([
+    const userTweets = await tweetModel.aggregate([
       {
         $match: { owner: new mongoose.Types.ObjectId(userId) },
       },

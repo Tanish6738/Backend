@@ -13,5 +13,8 @@
   "description": "",
   "devDependencies": {
     "prettier": "^3.4.2"
+  },
+  "dependencies": {
+    "mongoose-aggregate-paginate-v2": "^1.1.4"
   }
 }

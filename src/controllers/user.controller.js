@@ -52,18 +52,24 @@ const registerUser = asyncHandler(async (req, res) => {
         coverPath: req.files?.coverImage?.[0]?.path
     });
 
-    if (!req.files || !req.files.avatar || !req.files.avatar[0]) {
+    // Handle both array and single file for avatar and coverImage
+    let avatar = req.files?.avatar;
+    let coverImage = req.files?.coverImage;
+    if (Array.isArray(avatar)) avatar = avatar[0];
+    if (Array.isArray(coverImage)) coverImage = coverImage[0];
+
+    if (!avatar) {
         throw new ApiError(400, "Avatar file is required");
     }
 
-    const avatarLocalPath = req.files.avatar[0].path;
+    const avatarLocalPath = avatar.path;
     const uploadedAvatar = await uploadOnCloudinary(avatarLocalPath);
     if (!uploadedAvatar) {
         throw new ApiError(500, "Error while uploading avatar");
     }
 
     let coverImageUrl = "";
-    const coverLocalPath = req.files?.coverImage?.[0]?.path;
+    const coverLocalPath = coverImage?.path;
 
     if (coverLocalPath) {
         const uploadedCover = await uploadOnCloudinary(coverLocalPath);
@@ -379,13 +385,6 @@ const getChannelProfile = asyncHandler(async (req, res) => {
                     },
                     subscribeToCount: {
                         $size: "$subscribeTo"
-                    },
-                    isSubscribed: {
-                        if: {
-                            $in: [req.user._id, "$subscribers.subscriber"]
-                        },
-                        then: true,
-                        else: false
                     }
                 }
             }, {
@@ -393,22 +392,33 @@ const getChannelProfile = asyncHandler(async (req, res) => {
                     fullName: 1,
                     username: 1,
                     email: 1,
-                    isSubscribed: 1,
                     avatar: 1,
                     coverImage: 1,
                     subscriberCount: 1,
-                    subscribeToCount: 1
+                    subscribeToCount: 1,
+                    subscribers: 1
                 }
             }
         ]);
-
-        console.log("Channel profile found:", user);
 
         if (!user.length) {
             throw new ApiError(404, "Channel profile not found");
         }
 
-        return res.status(200).json(new ApiResponse(200, "Channel profile found", user));
+        // Calculate isSubscribed in JS
+        let isSubscribed = false;
+        if (req.user && req.user._id) {
+            const userIdStr = req.user._id.toString();
+            isSubscribed = user[0].subscribers.some(
+                (sub) => sub.subscriber && sub.subscriber.toString() === userIdStr
+            );
+        }
+        const channelProfile = {
+            ...user[0],
+            isSubscribed
+        };
+
+        return res.status(200).json(new ApiResponse(200, "Channel profile found", channelProfile));
     } catch (error) {
         throw new ApiError(500, "Error fetching channel profile");
     }

@@ -21,7 +21,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
     }
 
     const playlists = await playlistModel.aggregate([
-        { $match: { owner: mongoose.Types.ObjectId(userId) } },
+        { $match: { owner: new mongoose.Types.ObjectId(userId) } },
         { $lookup: { from: 'users', localField: 'owner', foreignField: '_id', as: 'ownerDetails' } },
         { $unwind: '$ownerDetails' },
         { $project: { 'ownerDetails.password': 0 } }
@@ -38,7 +38,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     }
 
     const playlist = await playlistModel.aggregate([
-        { $match: { _id: mongoose.Types.ObjectId(playlistId) } },
+        { $match: { _id: new mongoose.Types.ObjectId(playlistId) } },
         { $lookup: { from: 'users', localField: 'owner', foreignField: '_id', as: 'ownerDetails' } },
         { $unwind: '$ownerDetails' },
         { $project: { 'ownerDetails.password': 0 } }

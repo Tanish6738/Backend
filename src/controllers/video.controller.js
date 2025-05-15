@@ -5,6 +5,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import  asyncHandler from "../../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../../utils/Cloudinary.js";
+import fs from 'fs';
 
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
@@ -18,9 +19,12 @@ const getAllVideos = asyncHandler(async (req, res) => {
         match.owner = mongoose.Types.ObjectId(userId);
     }
 
-    const sort = {};
-    if (sortBy) {
+    // Only add sort key if sortBy is provided and not empty, otherwise default to _id
+    let sort = {};
+    if (sortBy && typeof sortBy === 'string' && sortBy.trim() !== "") {
         sort[sortBy] = sortType === "desc" ? -1 : 1;
+    } else {
+        sort = { _id: -1 }; // Default sort by newest
     }
 
     const options = {
@@ -29,14 +33,19 @@ const getAllVideos = asyncHandler(async (req, res) => {
         sort
     };
 
-    const videos = await Video.aggregatePaginate(
-        Video.aggregate([
-            { $match: match },
-            { $sort: sort },
-            { $lookup: { from: "users", localField: "owner", foreignField: "_id", as: "owner" } },
-            { $unwind: "$owner" },
-            { $project: { "owner.password": 0 } }
-        ]),
+    const aggregationPipeline = [
+        { $match: match },
+    ];
+    // Always push $sort (guaranteed to have at least one key)
+    aggregationPipeline.push({ $sort: sort });
+    aggregationPipeline.push(
+        { $lookup: { from: "users", localField: "owner", foreignField: "_id", as: "owner" } },
+        { $unwind: "$owner" },
+        { $project: { "owner.password": 0 } }
+    );
+
+    const videos = await videoModel.aggregatePaginate(
+        videoModel.aggregate(aggregationPipeline),
         options
     );
 
@@ -47,7 +56,16 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body;
-    const { videoFile, thumbnail } = req.files;
+    if (!req.files || !req.files.videoFile || !req.files.thumbnail) {
+        return res.status(400).json(
+            new ApiResponse(400, "Both videoFile and thumbnail are required.")
+        );
+    }
+    // Handle both array and single file for videoFile and thumbnail
+    let videoFile = req.files.videoFile;
+    let thumbnail = req.files.thumbnail;
+    if (Array.isArray(videoFile)) videoFile = videoFile[0];
+    if (Array.isArray(thumbnail)) thumbnail = thumbnail[0];
     const userId = req.user._id;
 
     const user = await userModel.findById(userId);
@@ -57,12 +75,25 @@ const publishAVideo = asyncHandler(async (req, res) => {
         );
     }
 
-    const videoFileUrl = await uploadOnCloudinary(videoFile.tempFilePath);
-    const thumbnailUrl = await uploadOnCloudinary(thumbnail.tempFilePath);
+    console.log('videoFile:', videoFile);
+    console.log('thumbnail:', thumbnail);
+    console.log('videoFile.path:', videoFile.path);
+    console.log('thumbnail.path:', thumbnail.path);
+    console.log('videoFile exists:', fs.existsSync(videoFile.path));
+    console.log('thumbnail exists:', fs.existsSync(thumbnail.path));
 
-    const video = await Video.create({
-        videoFile: videoFileUrl,
-        thumbnail: thumbnailUrl,
+    const videoFileUrl = await uploadOnCloudinary(videoFile.path);
+    const thumbnailUrl = await uploadOnCloudinary(thumbnail.path);
+
+    if (!videoFileUrl?.url || !thumbnailUrl?.url) {
+        return res.status(500).json(
+            new ApiResponse(500, `File upload failed. videoFileUrl: ${videoFileUrl?.url}, thumbnailUrl: ${thumbnailUrl?.url}`)
+        );
+    }
+
+    const video = await videoModel.create({
+        videoFile: videoFileUrl.url,
+        thumbnail: thumbnailUrl.url,
         title,
         description,
         duration: 0,
@@ -83,8 +114,8 @@ const getVideoById = asyncHandler(async (req, res) => {
         );
     }
 
-    const video = await Video.aggregate([
-        { $match: { _id: mongoose.Types.ObjectId(videoId) } },
+    const video = await videoModel.aggregate([
+        { $match: { _id: new mongoose.Types.ObjectId(videoId) } },
         { $lookup: { from: "users", localField: "owner", foreignField: "_id", as: "owner" } },
         { $unwind: "$owner" },
         { $project: { "owner.password": 0 } }
@@ -160,7 +191,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
         );
     }
 
-    const video = await Video.findById(videoId);
+    const video = await videoModel.findById(videoId);
     if (!video) {
         return res.status(404).json(
             new ApiResponse(404, "Video not found")
